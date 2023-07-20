@@ -1,5 +1,9 @@
 ---
+<<<<<<< HEAD
 name: xfelsim_sase1
+=======
+name: xfel_sase1
+>>>>>>> f61b3646ed68007e05bc5733333da5b3458cfb0f
 version: "0.1"
 dependencies:
   - numpy
