@@ -21,9 +21,16 @@ class Extension(extension.Extension):
 
     def get_algo_config(self, name):
         from xopt import __version__
-        from xopt.generators import generator_default_options
 
-        params = generator_default_options[name].dict()
+        try:
+            from xopt.generators import generator_default_options
+
+            params = generator_default_options[name].dict()
+        except ImportError:  # Xopt v2.0+
+            from .utils import get_algo_params
+            from xopt.generators import get_generator
+
+            params = get_algo_params(get_generator(name))
 
         try:
             _ = params['start_from_current']
@@ -32,6 +39,8 @@ class Extension(extension.Extension):
         try:  # remove custom GP kernel to avoid yaml parsing error for now
             del params['model']['function']
         except KeyError:
+            pass
+        except TypeError:
             pass
 
         try:
@@ -52,15 +61,18 @@ class Extension(extension.Extension):
 
     def optimize(self, evaluate, configs):
         # Lazy import to make the CLI UX faster
+        import copy
+        from packaging import version
         from operator import itemgetter
         from badger.utils import config_list_to_dict
+        from xopt import __version__
         from xopt import Xopt
         from xopt.log import configure_logger
-        from .utils import convert_evaluate
+        from .utils import convert_evaluate, get_init_data
 
         routine_configs, algo_configs = itemgetter(
             'routine_configs', 'algo_configs')(configs)
-        params_algo = algo_configs['params'].copy()
+        params_algo = copy.deepcopy(algo_configs['params'])
         try:
             start_from_current = params_algo['start_from_current']
             del params_algo['start_from_current']
@@ -68,9 +80,6 @@ class Extension(extension.Extension):
             start_from_current = True
 
         config = {
-            'xopt': {
-                'strict': True,
-            },
             'generator': {
                 'name': algo_configs['name'],
                 **params_algo,
@@ -85,10 +94,29 @@ class Extension(extension.Extension):
             }
         }
 
+        xopt_version = version.parse(__version__)
+        flag_v2 = (xopt_version >= version.parse('2.0')) or xopt_version.is_prerelease
+
+        if flag_v2:
+            configs['strict'] = True
+        else:
+            configs['xopt'] = {'strict': True}
+
         # Set up logging
         configure_logger(level='ERROR')
 
-        X = Xopt(config)
+        if flag_v2:
+            X = Xopt(**config)
+        else:
+            X = Xopt(config)
+        # Check initial points setting
+        # If set, run the optimization with it and ignore start_from_current
+        init_data = get_init_data(routine_configs)
+        if init_data is not None:
+            X.evaluate_data(init_data)
+            X.run()
+            # This will raise an exception with older (< 0.6) versions of xopt
+            return X.data
 
         # Evaluate the current solution if specified
         # or inject data from another run
@@ -96,7 +124,7 @@ class Extension(extension.Extension):
             from .utils import get_run_data
 
             init_data = get_run_data(start_from_current)
-            X.submit_data(init_data)
+            X.add_data(init_data)
         elif start_from_current:
             from .utils import get_current_data
 
