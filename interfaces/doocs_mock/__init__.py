@@ -20,3 +20,6 @@ class Interface(interface.Interface):
 
     def set_value(self, channel: str, value):
         print("Called set_value for channel: {}, with value: {}".format(channel, value))
+
+    def to_logbook():
+        print("doocs_mock: Hey it worked!")

@@ -29,3 +29,6 @@ class Interface(interface.Interface):
     def set_value(self, channel: str, value):
         channel = self._replace_fac(channel)
         pydoocs.write(channel, float(value))
+
+    def to_logbook():
+        print("doocs_real2sim: Hey it worked!")

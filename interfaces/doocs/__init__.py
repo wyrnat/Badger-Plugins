@@ -20,3 +20,6 @@ class Interface(interface.Interface):
 
     def set_value(self, channel: str, value):
         pydoocs.write(channel, float(value))
+
+    def to_logbook():
+        print("doocs: Hey it worked!")
